@@ -1,2 +1,2 @@
 # go-fintech
-make fintech app by golang
+practice to make fintech app by golang
