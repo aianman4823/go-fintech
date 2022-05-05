@@ -1,0 +1,13 @@
+package chapter4
+
+import "fmt"
+
+type MyInt int
+
+func (i MyInt) Double() int {
+	return int(i * 2)
+}
+func Non_struct() {
+	myInt := MyInt(10)
+	fmt.Println(myInt.Double())
+}
