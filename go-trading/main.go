@@ -1,12 +1,14 @@
 package main
 
 import (
+	"fmt"
+	bitflyer "go-trading/bitflyer"
 	config "go-trading/config"
 	utils "go-trading/utils"
-	"log"
 )
 
 func main() {
 	utils.LoggingSettings(config.Config.LogFile)
-	log.Println("test")
+	apiClient := bitflyer.New(config.Config.ApiKey, config.Config.ApiSecret)
+	fmt.Println(apiClient.GetBalance())
 }
