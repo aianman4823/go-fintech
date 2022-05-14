@@ -385,3 +385,47 @@ func (df *DataFrameCandle) OptimizeMacd() (performance float64, bestMacdFastPeri
 	}
 	return performance, bestMacdFastPeriod, bestMacdSlowPeriod, bestMacdSignalPeriod
 }
+
+func (df *DataFrameCandle) BackTestRsi(period int, buyThread, sellThread float64) *SignalEvents {
+	lenCandles := len(df.Candles)
+
+	if lenCandles <= period {
+		return nil
+	}
+
+	signalEvents := NewSignalEvents()
+	values := talib.Rsi(df.Closes(), period)
+	for i := 1; i < lenCandles; i++ {
+		if values[i-1] < buyThread && values[i] >= buyThread {
+			signalEvents.Buy(df.ProductCode, df.Candles[i].Time, df.Candles[i].Close, 1.0, false)
+		}
+		if values[i-1] > sellThread && values[i] <= sellThread {
+			signalEvents.Sell(df.ProductCode, df.Candles[i].Time, df.Candles[i].Close, 1.0, false)
+		}
+	}
+	return signalEvents
+}
+
+func (df *DataFrameCandle) OptimizeRsi() (performance float64, bestRsiPeriod int, bestBuyThread, bestSellThread float64) {
+	bestRsiPeriod = 14
+	bestBuyThread, bestSellThread = 30.0, 70.0
+
+	for period := 5; period < 25; period++ {
+		for buyThread := 25.0; buyThread < 35.0; buyThread += 0.1 {
+			for sellThread := 65.0; sellThread < 75.0; sellThread += 0.1 {
+				signalEvents := df.BackTestRsi(period, buyThread, sellThread)
+				if signalEvents == nil {
+					continue
+				}
+				profit := signalEvents.Profit()
+				if performance < profit {
+					performance = profit
+					bestRsiPeriod = period
+					bestBuyThread = buyThread
+					bestSellThread = sellThread
+				}
+			}
+		}
+	}
+	return performance, bestRsiPeriod, bestBuyThread, bestSellThread
+}
