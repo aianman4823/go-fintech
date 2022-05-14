@@ -3,10 +3,11 @@ package models
 import (
 	"encoding/json"
 	"fmt"
-	"go-trading/config"
 	"log"
 	"strings"
 	"time"
+
+	"go-trading/config"
 )
 
 type SignalEvent struct {
@@ -30,9 +31,8 @@ func (s *SignalEvent) Save() bool {
 	return true
 }
 
-// BUY SELL BUY SELL
 type SignalEvents struct {
-	Signals []SignalEvent `join:"signals,omitempty"`
+	Signals []SignalEvent `json:"signals,omitempty"`
 }
 
 func NewSignalEvents() *SignalEvents {
@@ -40,14 +40,15 @@ func NewSignalEvents() *SignalEvents {
 }
 
 func GetSignalEventsByCount(loadEvents int) *SignalEvents {
-	cmd := fmt.Sprintf(`SELECT * FROM(
-		SELECT time, product_code, side, price, size FROM %s WHERE product_code=? ORDER BY time DESC LIMIT ? )
-		ORDER BY time ASC;`, tableNameSignalEvents)
+	cmd := fmt.Sprintf(`SELECT * FROM (
+        SELECT time, product_code, side, price, size FROM %s WHERE product_code = ? ORDER BY time DESC LIMIT ? )
+        ORDER BY time ASC;`, tableNameSignalEvents)
 	rows, err := DbConnection.Query(cmd, config.Config.ProductCode, loadEvents)
 	if err != nil {
 		return nil
 	}
 	defer rows.Close()
+
 	var signalEvents SignalEvents
 	for rows.Next() {
 		var signalEvent SignalEvent
@@ -63,10 +64,10 @@ func GetSignalEventsByCount(loadEvents int) *SignalEvents {
 
 func GetSignalEventsAfterTime(timeTime time.Time) *SignalEvents {
 	cmd := fmt.Sprintf(`SELECT * FROM (
-		SELECT time, product_code, side, price, size FROM %s
-		WHERE DATETIME(time) >= DATETIME(?)
-		ORDER BY time DESC
-		) ORDER BY time ASC;`, tableNameSignalEvents)
+                SELECT time, product_code, side, price, size FROM %s
+                WHERE DATETIME(time) >= DATETIME(?)
+                ORDER BY time DESC
+            ) ORDER BY time ASC;`, tableNameSignalEvents)
 	rows, err := DbConnection.Query(cmd, timeTime.Format(time.RFC3339))
 	if err != nil {
 		return nil
@@ -87,6 +88,7 @@ func (s *SignalEvents) CanBuy(time time.Time) bool {
 	if lenSignals == 0 {
 		return true
 	}
+
 	lastSignal := s.Signals[lenSignals-1]
 	if lastSignal.Side == "SELL" && lastSignal.Time.Before(time) {
 		return true
@@ -99,6 +101,7 @@ func (s *SignalEvents) CanSell(time time.Time) bool {
 	if lenSignals == 0 {
 		return false
 	}
+
 	lastSignal := s.Signals[lenSignals-1]
 	if lastSignal.Side == "BUY" && lastSignal.Time.Before(time) {
 		return true
@@ -120,17 +123,18 @@ func (s *SignalEvents) Buy(ProductCode string, time time.Time, price, size float
 	if save {
 		signalEvent.Save()
 	}
-
 	s.Signals = append(s.Signals, signalEvent)
 	return true
 }
 
-func (s *SignalEvents) Sell(ProductCode string, time time.Time, price, size float64, save bool) bool {
+func (s *SignalEvents) Sell(productCode string, time time.Time, price, size float64, save bool) bool {
+
 	if !s.CanSell(time) {
 		return false
 	}
+
 	signalEvent := SignalEvent{
-		ProductCode: ProductCode,
+		ProductCode: productCode,
 		Time:        time,
 		Side:        "SELL",
 		Price:       price,
@@ -139,12 +143,10 @@ func (s *SignalEvents) Sell(ProductCode string, time time.Time, price, size floa
 	if save {
 		signalEvent.Save()
 	}
-
 	s.Signals = append(s.Signals, signalEvent)
 	return true
 }
 
-// BUY SELL BUY SEL
 func (s *SignalEvents) Profit() float64 {
 	total := 0.0
 	beforeSell := 0.0
@@ -162,14 +164,14 @@ func (s *SignalEvents) Profit() float64 {
 			isHolding = false
 			beforeSell = total
 		}
-		if isHolding == true {
-			return beforeSell
-		}
+	}
+	if isHolding == true {
+		return beforeSell
 	}
 	return total
 }
 
-func (s *SignalEvents) MarshalJSON() ([]byte, error) {
+func (s SignalEvents) MarshalJSON() ([]byte, error) {
 	value, err := json.Marshal(&struct {
 		Signals []SignalEvent `json:"signals,omitempty"`
 		Profit  float64       `json:"profit,omitempty"`
@@ -180,7 +182,7 @@ func (s *SignalEvents) MarshalJSON() ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	return value, nil
+	return value, err
 }
 
 func (s *SignalEvents) CollectAfter(time time.Time) *SignalEvents {

@@ -19,6 +19,7 @@ type DataFrameCandle struct {
 	Rsi           *Rsi           `json:"rsi,omitempty"`
 	Macd          *Macd          `json:"macd,omitempty"`
 	Hvs           []Hv           `json:"hvs,omitempty"`
+	Events        *SignalEvents  `json:"events,omitempty"`
 }
 
 type Sma struct {
@@ -39,17 +40,17 @@ type BBands struct {
 	Down []float64 `json:"down,omitempty"`
 }
 
-type Rsi struct {
-	Period int       `json:"period,omitempty"`
-	Values []float64 `json:"values,omitempty"`
-}
-
 type IchimokuCloud struct {
 	Tenkan  []float64 `json:"tenkan,omitempty"`
 	Kijun   []float64 `json:"kijun,omitempty"`
 	SenkouA []float64 `json:"senkoua,omitempty"`
 	SenkouB []float64 `json:"senkoub,omitempty"`
 	Chikou  []float64 `json:"chikou,omitempty"`
+}
+
+type Rsi struct {
+	Period int       `json:"period,omitempty"`
+	Values []float64 `json:"values,omitempty"`
 }
 
 type Macd struct {
@@ -168,11 +169,10 @@ func (df *DataFrameCandle) AddIchimoku() bool {
 }
 
 func (df *DataFrameCandle) AddRsi(period int) bool {
-	if len(df.Closes()) > period {
-		values := talib.Rsi(df.Closes(), period)
+	if len(df.Candles) > period {
 		df.Rsi = &Rsi{
 			Period: period,
-			Values: values,
+			Values: talib.Rsi(df.Closes(), period),
 		}
 		return true
 	}
@@ -196,11 +196,20 @@ func (df *DataFrameCandle) AddMacd(inFastPeriod, inSlowPeriod, inSignalPeriod in
 }
 
 func (df *DataFrameCandle) AddHv(period int) bool {
-	if len(df.Candles) > 1 {
+	if len(df.Candles) >= period {
 		df.Hvs = append(df.Hvs, Hv{
 			Period: period,
 			Values: tradingalgo.Hv(df.Closes(), period),
 		})
+		return true
+	}
+	return false
+}
+
+func (df *DataFrameCandle) AddEvents(timeTime time.Time) bool {
+	signalEvents := GetSignalEventsAfterTime(timeTime)
+	if len(signalEvents.Signals) > 0 {
+		df.Events = signalEvents
 		return true
 	}
 	return false
