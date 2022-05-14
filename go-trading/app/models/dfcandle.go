@@ -220,17 +220,19 @@ func (df *DataFrameCandle) BackTestEma(period1, period2 int) *SignalEvents {
 	if lenCandles <= period1 || lenCandles <= period2 {
 		return nil
 	}
-
 	signalEvents := NewSignalEvents()
 	emaValue1 := talib.Ema(df.Closes(), period1)
 	emaValue2 := talib.Ema(df.Closes(), period2)
-	for i := 0; i < lenCandles; i++ {
+
+	for i := 1; i < lenCandles; i++ {
 		if i < period1 || i < period2 {
 			continue
 		}
+
 		if emaValue1[i-1] < emaValue2[i-1] && emaValue1[i] >= emaValue2[i] {
 			signalEvents.Buy(df.ProductCode, df.Candles[i].Time, df.Candles[i].Close, 1.0, false)
 		}
+
 		if emaValue1[i-1] > emaValue2[i-1] && emaValue1[i] <= emaValue2[i] {
 			signalEvents.Sell(df.ProductCode, df.Candles[i].Time, df.Candles[i].Close, 1.0, false)
 		}
@@ -261,10 +263,12 @@ func (df *DataFrameCandle) OptimizeEma() (performance float64, bestPeriod1 int, 
 
 func (df *DataFrameCandle) BackTestBb(n int, k float64) *SignalEvents {
 	lenCandles := len(df.Candles)
+
 	if lenCandles <= n {
 		return nil
 	}
-	signalEvents := NewSignalEvents()
+
+	signalEvents := &SignalEvents{}
 	bbUp, _, bbDown := talib.BBands(df.Closes(), n, k, k, 0)
 	for i := 1; i < lenCandles; i++ {
 		if i < n {
@@ -303,26 +307,29 @@ func (df *DataFrameCandle) OptimizeBb() (performance float64, bestN int, bestK f
 
 func (df *DataFrameCandle) BackTestIchimoku() *SignalEvents {
 	lenCandles := len(df.Candles)
+
 	if lenCandles <= 52 {
 		return nil
 	}
 
-	var signalEvents SignalEvents
+	signalEvents := &SignalEvents{}
 	tenkan, kijun, senkouA, senkouB, chikou := tradingalgo.IchimokuCloud(df.Closes())
 
 	for i := 1; i < lenCandles; i++ {
+
 		if chikou[i-1] < df.Candles[i-1].High && chikou[i] >= df.Candles[i].High &&
 			senkouA[i] < df.Candles[i].Low && senkouB[i] < df.Candles[i].Low &&
 			tenkan[i] > kijun[i] {
 			signalEvents.Buy(df.ProductCode, df.Candles[i].Time, df.Candles[i].Close, 1.0, false)
 		}
+
 		if chikou[i-1] > df.Candles[i-1].Low && chikou[i] <= df.Candles[i].Low &&
 			senkouA[i] > df.Candles[i].High && senkouB[i] > df.Candles[i].High &&
 			tenkan[i] < kijun[i] {
 			signalEvents.Sell(df.ProductCode, df.Candles[i].Time, df.Candles[i].Close, 1.0, false)
 		}
 	}
-	return &signalEvents
+	return signalEvents
 }
 
 func (df *DataFrameCandle) OptimizeIchimoku() (performance float64) {
@@ -343,6 +350,7 @@ func (df *DataFrameCandle) BackTestMacd(macdFastPeriod, macdSlowPeriod, macdSign
 
 	signalEvents := &SignalEvents{}
 	outMACD, outMACDSignal, _ := talib.Macd(df.Closes(), macdFastPeriod, macdSlowPeriod, macdSignalPeriod)
+
 	for i := 1; i < lenCandles; i++ {
 		if outMACD[i] < 0 &&
 			outMACDSignal[i] < 0 &&
@@ -388,7 +396,6 @@ func (df *DataFrameCandle) OptimizeMacd() (performance float64, bestMacdFastPeri
 
 func (df *DataFrameCandle) BackTestRsi(period int, buyThread, sellThread float64) *SignalEvents {
 	lenCandles := len(df.Candles)
-
 	if lenCandles <= period {
 		return nil
 	}
@@ -396,9 +403,13 @@ func (df *DataFrameCandle) BackTestRsi(period int, buyThread, sellThread float64
 	signalEvents := NewSignalEvents()
 	values := talib.Rsi(df.Closes(), period)
 	for i := 1; i < lenCandles; i++ {
+		if values[i-1] == 0 || values[i-1] == 100 {
+			continue
+		}
 		if values[i-1] < buyThread && values[i] >= buyThread {
 			signalEvents.Buy(df.ProductCode, df.Candles[i].Time, df.Candles[i].Close, 1.0, false)
 		}
+
 		if values[i-1] > sellThread && values[i] <= sellThread {
 			signalEvents.Sell(df.ProductCode, df.Candles[i].Time, df.Candles[i].Close, 1.0, false)
 		}

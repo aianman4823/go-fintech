@@ -188,13 +188,11 @@ func apiCandleHandler(w http.ResponseWriter, r *http.Request) {
 	events := r.URL.Query().Get("events")
 	if events != "" {
 		if config.Config.BackTest {
-			performance, p1, p2, ps := df.OptimizeRsi()
-			log.Println("performance: ", performance, p1, p2, ps)
+			performance, p1, p2, p3 := df.OptimizeRsi()
+			log.Println(performance, p1, p2, p3)
 			if performance > 0 {
-				df.Events = df.BackTestRsi(p1, p2, ps)
+				df.Events = df.BackTestRsi(p1, p2, p3)
 			}
-			// df.Events = df.BackTestIchimoku()
-			// }
 		} else {
 			firstTime := df.Candles[0].Time
 			df.AddEvents(firstTime)

@@ -175,6 +175,21 @@
         var options = mainChart.getOptions();
         var view = mainChart.getView();
 
+        if (config.events.enable == true && config.events.indexes.length > 0) {
+          options.series[config.events.indexes[0]] = {
+            type: "line",
+            tooltip: "none",
+            enableInteractivity: false,
+            lineWidth: 0,
+          };
+          view.columns.push(
+            config.candlestick.numViews + config.events.indexes[0]
+          );
+          view.columns.push(
+            config.candlestick.numViews + config.events.indexes[1]
+          );
+        }
+
         if (config.sma.enable == true) {
           for (i = 0; i < config.sma.indexes.length; i++) {
             options.series[config.sma.indexes[i]] = { type: "line" };
@@ -216,21 +231,6 @@
               config.candlestick.numViews + config.ichimoku.indexes[i]
             );
           }
-        }
-
-        if (config.events.enable == true && config.events.indexes.length > 0) {
-          options.series[config.events.indexes[0]] = {
-            type: "line",
-            tooltip: "none",
-            enableInteractivity: false,
-            lineWidth: 0,
-          };
-          view.columns.push(
-            config.candlestick.numViews + config.events.indexes[0]
-          );
-          view.columns.push(
-            config.candlestick.numViews + config.events.indexes[1]
-          );
         }
 
         if (config.volume.enable == true) {
@@ -390,6 +390,10 @@
           duration: config.candlestick.duration,
         };
 
+        if (config.events.enable == true) {
+          params["events"] = true;
+        }
+
         if (config.sma.enable == true) {
           params["sma"] = true;
           params["smaPeriod1"] = config.sma.periods[0];
@@ -433,10 +437,6 @@
           params["hvPeriod3"] = config.hv.periods[2];
         }
 
-        if (config.events.enable == true) {
-          params["events"] = true;
-        }
-
         $.get("/api/candle/", params).done(function (data) {
           initConfigValues();
           var dataTable = new google.visualization.DataTable();
@@ -446,6 +446,25 @@
           dataTable.addColumn("number", "Close");
           dataTable.addColumn("number", "High");
           dataTable.addColumn("number", "Volume");
+
+          if (data["events"] != undefined) {
+            config.dataTable.index += 1;
+            config.events.indexes[0] = config.dataTable.index;
+            config.dataTable.index += 1;
+            config.events.indexes[1] = config.dataTable.index;
+
+            config.events.values = data["events"]["signals"];
+            config.events.first = config.events.values.shift();
+
+            dataTable.addColumn("number", "Marker");
+            dataTable.addColumn({ type: "string", role: "annotation" });
+
+            if (data["events"]["profit"] != undefined) {
+              profit =
+                "$" + String(Math.round(data["events"]["profit"] * 100) / 100);
+              $("#profit").html("Change:" + profit);
+            }
+          }
 
           if (data["smas"] != undefined) {
             for (i = 0; i < data["smas"].length; i++) {
@@ -591,25 +610,6 @@
             }
           }
 
-          if (data["events"] != undefined) {
-            config.dataTable.index += 1;
-            config.events.indexes[0] = config.dataTable.index;
-            config.dataTable.index += 1;
-            config.events.indexes[1] = config.dataTable.index;
-
-            config.events.values = data["events"]["signals"];
-            config.events.first = config.events.values.shift();
-
-            dataTable.addColumn("number", "Marker");
-            dataTable.addColumn({ type: "string", role: "annotation" });
-
-            if (data["events"]["profit"] != undefined) {
-              profit =
-                "$" + String(Math.round(data["events"]["profit"] * 100) / 100);
-              $("#profit").html("Change:" + profit);
-            }
-          }
-
           var googleChartData = [];
           var candles = data["candles"];
 
@@ -624,6 +624,21 @@
               candle.high,
               candle.volume,
             ];
+
+            if (data["events"] != undefined) {
+              var event = config.events.first;
+              if (event == undefined) {
+                datas.push(null);
+                datas.push(null);
+              } else if (event.time == candle.time) {
+                datas.push(candle.high + 1);
+                datas.push(event.side);
+                config.events.first = config.events.values.shift();
+              } else {
+                datas.push(null);
+                datas.push(null);
+              }
+            }
 
             if (data["smas"] != undefined) {
               for (j = 0; j < config.sma.values.length; j++) {
@@ -688,21 +703,6 @@
                 datas.push(null);
               } else {
                 datas.push(config.ichimoku.chikou[i]);
-              }
-            }
-
-            if (data["events"] != undefined) {
-              var event = config.events.first;
-              if (event == undefined) {
-                datas.push(null);
-                datas.push(null);
-              } else if (event.time == candle.time) {
-                datas.push(candle.high + 1);
-                datas.push(event.side);
-                config.events.first = config.events.values.shift();
-              } else {
-                datas.push(null);
-                datas.push(null);
               }
             }
 
